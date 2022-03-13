@@ -1,0 +1,14 @@
+In blockchain we will have a hardcoded port
+we will have a api GET /blockchain
+this api will return an array of blocks which is blockchain
+
+how to sync transactions in kaycoin?
+https://stackoverflow.com/questions/8837236/how-to-connect-two-node-js-servers-with-websockets
+
+[ ] p2p implementation using socket
+[ ] GET /blockchain API
+[ ] 51% validation of blockchain across network
+
+[ ] read about persistence and liveliness
+[ ] read about modifications of block structure in kaycoin
+[ ] read about modifications of validation algo in kaycoin

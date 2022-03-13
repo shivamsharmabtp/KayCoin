@@ -1,5 +1,5 @@
 {
-  "name": "savjeecoin",
+  "name": "kaycoin",
   "version": "1.0.1",
   "description": "Simple Blockchain implementation in Javascript. For educational purposes only.",
   "keywords": [
@@ -15,11 +15,11 @@
   },
   "author": "Xavier Decuyper <hi@savjee.be>",
   "license": "MIT",
-  "repository": "github:SavjeeTutorials/SavjeeCoin",
+  "repository": "github:SavjeeTutorials/KayCoin",
   "bugs": {
-    "url": "https://github.com/SavjeeTutorials/SavjeeCoin/issues"
+    "url": "https://github.com/SavjeeTutorials/KayCoin/issues"
   },
-  "homepage": "https://github.com/SavjeeTutorials/SavjeeCoin",
+  "homepage": "https://github.com/SavjeeTutorials/KayCoin",
   "dependencies": {
     "debug": "^4.1.1",
     "elliptic": "^6.5.4"

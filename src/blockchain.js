@@ -8,12 +8,14 @@ class Transaction {
    * @param {string} fromAddress
    * @param {string} toAddress
    * @param {number} amount
+   * @param {string} outScript // here harmful content will go
    */
-  constructor(fromAddress, toAddress, amount) {
+  constructor(fromAddress, toAddress, amount, outScript) {
     this.fromAddress = fromAddress;
     this.toAddress = toAddress;
     this.amount = amount;
     this.timestamp = Date.now();
+    this.outScript = outScript;
   }
 
   /**
@@ -24,7 +26,13 @@ class Transaction {
   calculateHash() {
     return crypto
       .createHash("sha256")
-      .update(this.fromAddress + this.toAddress + this.amount + this.timestamp)
+      .update(
+        this.fromAddress +
+          this.toAddress +
+          this.amount +
+          this.timestamp +
+          this.outScript
+      )
       .digest("hex");
   }
 
@@ -83,6 +91,7 @@ class Block {
     this.transactions = transactions;
     this.nonce = 0;
     this.hash = this.calculateHash();
+    this.oldHash = this.calculateHash(); // Old merkel root
   }
 
   /**
@@ -160,6 +169,15 @@ class Blockchain {
    */
   getLatestBlock() {
     return this.chain[this.chain.length - 1];
+  }
+
+  /**
+   * Returns the complete chain
+   *
+   * @returns [Block[]]
+   */
+  getChain() {
+    return this.chain;
   }
 
   /**

@@ -12,3 +12,13 @@ https://stackoverflow.com/questions/8837236/how-to-connect-two-node-js-servers-w
 [ ] read about persistence and liveliness
 [ ] read about modifications of block structure in kaycoin
 [ ] read about modifications of validation algo in kaycoin
+
+
+Node 1:
+HTTP_PORT=3001 P2P_PORT=6001 node src/main.js
+
+Node 2:
+HTTP_PORT=3002 P2P_PORT=6002 PEERS=ws://localhost:6001 node src/main.js
+
+Node 3:
+HTTP_PORT=3003 P2P_PORT=6003 PEERS=ws://localhost:6001 node src/main.js

@@ -22,7 +22,9 @@
   "homepage": "https://github.com/SavjeeTutorials/KayCoin",
   "dependencies": {
     "debug": "^4.1.1",
-    "elliptic": "^6.5.4"
+    "elliptic": "^6.5.4",
+    "express": "^4.17.3",
+    "ws": "^8.5.0"
   },
   "devDependencies": {
     "coveralls": "^3.0.6",

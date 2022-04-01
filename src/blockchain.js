@@ -2,17 +2,26 @@ const crypto = require("crypto");
 const EC = require("elliptic").ec;
 const ec = new EC("secp256k1");
 const debug = require("debug")("kaycoin:blockchain");
+const log = require("./util/log");
 
 const RedactionPolicy = {
-  rho: 0.54,
+  rho: 0.24,
+  votingPeriodInBlocks: 5,
 };
+
+const DIFFICULTY = 2;
 
 class CandidatePool {
   constructor() {
     this.redactionCandidates = [];
   }
 
+  getRedactionCandidates() {
+    return this.redactionCandidates;
+  }
+
   proposeRedact(redactedBlock, index, delta) {
+    redactedBlock.mineBlock(DIFFICULTY);
     const redactionCandidate = {
       redactedBlock,
       index,
@@ -25,6 +34,14 @@ class CandidatePool {
     if (this.redactionCandidates && this.redactionCandidates.length)
       return this.redactionCandidates[this.redactionCandidates.length - 1];
     else return null;
+  }
+
+  removeBlock(block) {
+    let index = 0;
+    for (; index < this.redactionCandidates.length; index++) {
+      if (this.redactionCandidates[index].hash == block.hash) break;
+    }
+    this.redactionCandidates.splice(index - 1, 1);
   }
 }
 
@@ -153,6 +170,7 @@ class Block {
     ) {
       this.nonce++;
       this.hash = this.calculateHash();
+      this.oldHash = this.calculateHash();
     }
 
     debug(`Block mined: ${this.hash}`);
@@ -178,7 +196,7 @@ class Block {
 class Blockchain {
   constructor() {
     this.chain = [this.createGenesisBlock()];
-    this.difficulty = 2;
+    this.difficulty = DIFFICULTY;
     this.pendingTransactions = [];
     this.miningReward = 100;
     this.persistence = 5;
@@ -382,6 +400,65 @@ class Blockchain {
     }
 
     return true;
+  }
+
+  validateProofOfWork(block) {
+    block.calculateHash();
+    return DIFFICULTY <= (block.hash.match(/^0+/) || [""])[0].length;
+  }
+
+  redactChain(candidatePool) {
+    /**
+     * FOR EACH BLOCK IN CANDIDATE POOL
+     * VALIDATE BLOCK BY CHECKING LINK WITH PREVIOUS AND NEXT BLOCK
+     * CHECK PROOF OF WORK
+     * CALCULATE VOTING RESULT AND COMPARE IT TO RHO
+     * ADD TO CHAIN IF ACCEPTABLE BY POLICY
+     * REMOVE FROM POOL
+     */
+    candidatePool.redactionCandidates.forEach((redactionCandidate) => {
+      const { index, redactedBlock } = redactionCandidate;
+      const nextBlockInChain = this.getChain()[index + 1];
+      const prevBlockInChain = this.getChain()[index - 1];
+      if (
+        nextBlockInChain.previousHash == redactedBlock.oldHash &&
+        redactedBlock.previousHash == prevBlockInChain.hash
+      ) {
+        if (this.validateProofOfWork(redactedBlock)) {
+          if (
+            RedactionPolicy.votingPeriodInBlocks +
+              this.persistence +
+              redactedBlock.currentIndex <
+            this.getChain().length
+          ) {
+            let inFavour = 0;
+            for (
+              let i = redactedBlock.currentIndex;
+              i < this.getChain().length - this.persistence;
+              i++
+            ) {
+              if (this.getChain()[i].requestHash) inFavour++;
+            }
+            if (
+              inFavour /
+                (this.getChain().length -
+                  this.persistence -
+                  redactedBlock.currentIndex) >
+              RedactionPolicy.rho
+            ) {
+              // REDACTION IS ACCEPTED
+              log(`Redaction proposal accepted`);
+              this.chain[redactedBlock.index] = redactedBlock;
+              candidatePool.removeBlock(redactedBlock);
+            } else {
+              // REDACTION IS REJECTED
+              log(`Redaction proposal rejected`);
+              candidatePool.removeBlock(redactedBlock);
+            }
+          }
+        }
+      }
+    });
   }
 }
 

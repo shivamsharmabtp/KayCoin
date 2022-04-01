@@ -5,7 +5,12 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const { Blockchain, Transaction } = require("./blockchain");
+const {
+  Blockchain,
+  Transaction,
+  CandidatePool,
+  Block,
+} = require("./blockchain");
 const { privateKey } = require("./util/keygenerator");
 const { initializeNetworkLayer } = require("./network");
 const log = require("./util/log");
@@ -65,31 +70,65 @@ app.get("/isChainValid", (req, res) => {
 });
 
 const dryRun = () => {
-  // Mine first block
-  KayCoin.minePendingTransactions(myWalletAddress);
+  const harmfulContent = "👻 👻 👻 SOME_HARMFUL_CONTENT 👻 👻 👻";
+  const localCandidatePool = new CandidatePool();
 
-  // Create a transaction & sign it with your key
+  /**
+   * MINING GENESIS BLOCK
+   */
+  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
+
+  /**
+   * MINING TRANSACTION 01 BLOCK
+   */
   const tx1 = new Transaction(
     myWalletAddress,
-    "address2",
+    "address1",
     80,
-    "Some harmful content 👻 👻 👻"
+    "Transaction One."
   );
   tx1.signTransaction(privateKey);
   KayCoin.addTransaction(tx1);
+  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
 
-  // Mine block
-  KayCoin.minePendingTransactions(myWalletAddress);
-
-  // Create second transaction
-  const tx2 = new Transaction(myWalletAddress, "address1", 50);
+  /**
+   * MINING TRANSACTION 02 BLOCK
+   */
+  const tx2 = new Transaction(
+    myWalletAddress,
+    "address2",
+    50,
+    "Transaction two" + harmfulContent
+  );
   tx2.signTransaction(privateKey);
   KayCoin.addTransaction(tx2);
+  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
 
-  // Mine block
-  KayCoin.minePendingTransactions(myWalletAddress);
+  /**
+   * FOUND SOME HARMFUL CONTENT ON CHAIN
+   * REQUESTING REDACTION BY CREATING CANDIDATE BLOCK
+   * AND PROPOSING IT FOR CANDIDATE POOL
+   */
+  const candidateBlock = KayCoin.getChain()[2];
+  candidateBlock.transactions[0].outScript = "Transaction One";
+  localCandidatePool.proposeRedact(candidateBlock, 2, harmfulContent);
 
-  log(`Balance of xavier is ${KayCoin.getBalanceOfAddress(myWalletAddress)}`);
+  /**
+   * MINING TRANSACTION 03 BLOCK
+   */
+  const tx3 = new Transaction(
+    myWalletAddress,
+    "address3",
+    45,
+    "Transaction three"
+  );
+  tx3.signTransaction(privateKey);
+  KayCoin.addTransaction(tx3);
+  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
+
+  log(
+    `Balance of USER is : $${KayCoin.getBalanceOfAddress(myWalletAddress)} /-`
+  );
 };
 
 app.listen(HTTP_PORT, () => {

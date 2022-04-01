@@ -3,6 +3,31 @@ const EC = require("elliptic").ec;
 const ec = new EC("secp256k1");
 const debug = require("debug")("kaycoin:blockchain");
 
+const RedactionPolicy = {
+  rho: 0.54,
+};
+
+class CandidatePool {
+  constructor() {
+    this.redactionCandidates = [];
+  }
+
+  proposeRedact(redactedBlock, index, delta) {
+    const redactionCandidate = {
+      redactedBlock,
+      index,
+      delta,
+    };
+    this.redactionCandidates.push(redactionCandidate);
+  }
+
+  getLatestCandidate() {
+    if (this.redactionCandidates && this.redactionCandidates.length)
+      return this.redactionCandidates[this.redactionCandidates.length - 1];
+    else return null;
+  }
+}
+
 class Transaction {
   /**
    * @param {string} fromAddress
@@ -94,6 +119,10 @@ class Block {
     this.oldHash = this.calculateHash(); // Old merkel root
   }
 
+  getHash() {
+    return this.hash;
+  }
+
   /**
    * Returns the SHA256 of this block (by processing all the data stored
    * inside this block)
@@ -152,6 +181,7 @@ class Blockchain {
     this.difficulty = 2;
     this.pendingTransactions = [];
     this.miningReward = 100;
+    this.persistence = 5;
   }
 
   /**
@@ -187,7 +217,7 @@ class Blockchain {
    *
    * @param {string} miningRewardAddress
    */
-  minePendingTransactions(miningRewardAddress) {
+  minePendingTransactions(miningRewardAddress, candidatePool) {
     const rewardTx = new Transaction(
       null,
       miningRewardAddress,
@@ -202,9 +232,18 @@ class Blockchain {
     );
     block.mineBlock(this.difficulty);
 
-    debug("Block successfully mined!");
+    /**
+     * NODES VOTING FOR REDACTION CANDIDATE
+     */
+    const redactionCandidate = candidatePool.getLatestCandidate();
+    const redactionLooksGoodToMe = parseInt(Math.random() * 100) % 2;
+    if (redactionCandidate && redactionLooksGoodToMe) {
+      block.requestHash = redactionCandidate.redactedBlock.getHash();
+    }
+    /**
+     * .........................................
+     */
     this.chain.push(block);
-
     this.pendingTransactions = [];
   }
 
@@ -346,6 +385,10 @@ class Blockchain {
   }
 }
 
-module.exports.Blockchain = Blockchain;
-module.exports.Block = Block;
-module.exports.Transaction = Transaction;
+module.exports = {
+  Block,
+  Blockchain,
+  Transaction,
+  RedactionPolicy,
+  CandidatePool,
+};

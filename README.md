@@ -21,6 +21,7 @@ _⚠️ This Blockchain is for education purposes only. May not be secure enough
 ### Install NodeJs and then run
 
 ```
+npm install
 node src/main.js
 ```
 

@@ -5,10 +5,10 @@ const debug = require("debug")("kaycoin:blockchain");
 const log = require("./util/log");
 
 const RedactionPolicy = {
-  rho: 0.24,
+  rho: 0.51,
   votingPeriodInBlocks: 5,
 };
-
+const VOTING_CACHE = {};
 const DIFFICULTY = 2;
 
 class CandidatePool {
@@ -20,12 +20,47 @@ class CandidatePool {
     return this.redactionCandidates;
   }
 
-  proposeRedact(redactedBlock, index, delta) {
-    redactedBlock.mineBlock(DIFFICULTY);
+  proposeRedact(redactionBlock, index, harmfulContent, revisedContent) {
+    if (VOTING_CACHE[harmfulContent] == null) {
+      log("Cache for vote not found");
+    } else if (VOTING_CACHE[harmfulContent].result == "WON") {
+      log("Cache for vote found. It was accepted last time.");
+      redactionBlock.transactions[0].outScript = revisedContent;
+      return;
+    } else {
+      log("Cache for vote found. It was rejected last time.");
+      return;
+    }
+    const redactionBlockTransactions = [];
+    redactionBlock.transactions.forEach((transaction) => {
+      redactionBlockTransactions.push(
+        new Transaction(
+          transaction.fromAddress,
+          transaction.toAddress,
+          transaction.amount,
+          transaction.outScript,
+          transaction.timestamp,
+          transaction.signature
+        )
+      );
+    });
+    const candidateBlock = new Block(
+      redactionBlock.timestamp,
+      redactionBlockTransactions,
+      redactionBlock.previousHash,
+      redactionBlock.hash,
+      redactionBlock.oldHash,
+      redactionBlock.nonce
+    );
+    candidateBlock.transactions[0].outScript = revisedContent;
+    candidateBlock.currentIndex = index;
+
+    candidateBlock.mineBlock(DIFFICULTY);
     const redactionCandidate = {
-      redactedBlock,
+      candidateBlock,
       index,
-      delta,
+      harmfulContent,
+      revisedContent,
     };
     this.redactionCandidates.push(redactionCandidate);
   }
@@ -52,12 +87,13 @@ class Transaction {
    * @param {number} amount
    * @param {string} outScript // here harmful content will go
    */
-  constructor(fromAddress, toAddress, amount, outScript) {
+  constructor(fromAddress, toAddress, amount, outScript, timestamp, signature) {
     this.fromAddress = fromAddress;
     this.toAddress = toAddress;
     this.amount = amount;
-    this.timestamp = Date.now();
+    this.timestamp = timestamp || Date.now();
     this.outScript = outScript;
+    this.signature = this.signature;
   }
 
   /**
@@ -127,13 +163,20 @@ class Block {
    * @param {Transaction[]} transactions
    * @param {string} previousHash
    */
-  constructor(timestamp, transactions, previousHash = "") {
+  constructor(
+    timestamp,
+    transactions,
+    previousHash = "",
+    hash,
+    oldHash,
+    nonce
+  ) {
     this.previousHash = previousHash;
     this.timestamp = timestamp;
     this.transactions = transactions;
-    this.nonce = 0;
-    this.hash = this.calculateHash();
-    this.oldHash = this.calculateHash(); // Old merkel root
+    this.nonce = nonce || 0;
+    this.hash = hash || this.calculateHash();
+    this.oldHash = oldHash || this.calculateHash(); // Old merkel root
   }
 
   getHash() {
@@ -206,7 +249,7 @@ class Blockchain {
    * @returns {Block}
    */
   createGenesisBlock() {
-    return new Block(Date.parse("2017-01-01"), [], "0");
+    return new Block(Date.parse("2022-01-01"), [], "0");
   }
 
   /**
@@ -256,7 +299,7 @@ class Blockchain {
     const redactionCandidate = candidatePool.getLatestCandidate();
     const redactionLooksGoodToMe = parseInt(Math.random() * 100) % 2;
     if (redactionCandidate && redactionLooksGoodToMe) {
-      block.requestHash = redactionCandidate.redactedBlock.getHash();
+      block.requestHash = redactionCandidate.candidateBlock.getHash();
     }
     /**
      * .........................................
@@ -417,23 +460,23 @@ class Blockchain {
      * REMOVE FROM POOL
      */
     candidatePool.redactionCandidates.forEach((redactionCandidate) => {
-      const { index, redactedBlock } = redactionCandidate;
+      const { index, candidateBlock, harmfulContent } = redactionCandidate;
       const nextBlockInChain = this.getChain()[index + 1];
       const prevBlockInChain = this.getChain()[index - 1];
       if (
-        nextBlockInChain.previousHash == redactedBlock.oldHash &&
-        redactedBlock.previousHash == prevBlockInChain.hash
+        nextBlockInChain.previousHash == candidateBlock.oldHash &&
+        candidateBlock.previousHash == prevBlockInChain.hash
       ) {
-        if (this.validateProofOfWork(redactedBlock)) {
+        if (this.validateProofOfWork(candidateBlock)) {
           if (
             RedactionPolicy.votingPeriodInBlocks +
               this.persistence +
-              redactedBlock.currentIndex <
+              candidateBlock.currentIndex <
             this.getChain().length
           ) {
             let inFavour = 0;
             for (
-              let i = redactedBlock.currentIndex;
+              let i = candidateBlock.currentIndex;
               i < this.getChain().length - this.persistence;
               i++
             ) {
@@ -443,17 +486,23 @@ class Blockchain {
               inFavour /
                 (this.getChain().length -
                   this.persistence -
-                  redactedBlock.currentIndex) >
+                  candidateBlock.currentIndex) >
               RedactionPolicy.rho
             ) {
               // REDACTION IS ACCEPTED
               log(`Redaction proposal accepted`);
-              this.chain[redactedBlock.index] = redactedBlock;
-              candidatePool.removeBlock(redactedBlock);
+              VOTING_CACHE[harmfulContent] = {
+                result: "WON",
+              };
+              this.chain[candidateBlock.currentIndex] = candidateBlock;
+              candidatePool.removeBlock(candidateBlock);
             } else {
               // REDACTION IS REJECTED
               log(`Redaction proposal rejected`);
-              candidatePool.removeBlock(redactedBlock);
+              VOTING_CACHE[harmfulContent] = {
+                result: "LOST",
+              };
+              candidatePool.removeBlock(candidateBlock);
             }
           }
         }

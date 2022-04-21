@@ -2,9 +2,10 @@
 
 A Redactable version of bitcoin with caching of redaction votes.
 
-Authors:
-Satyajeet Deshmukh
-Shivam Sharma
+## Authors:
+
+- Satyajeet Deshmukh
+- Shivam Sharma
 
 _⚠️ This Blockchain is for education purposes only. May not be secure for practical usage.!_
 

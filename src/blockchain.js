@@ -3,12 +3,12 @@ const EC = require("elliptic").ec;
 const ec = new EC("secp256k1");
 const debug = require("debug")("kaycoin:blockchain");
 const log = require("./util/log");
+const { getHashOfData } = require("./util/keygenerator");
 
 const RedactionPolicy = {
   rho: 0.51,
   votingPeriodInBlocks: 5,
 };
-const VOTING_CACHE = {};
 const DIFFICULTY = 2;
 
 class CandidatePool {
@@ -21,16 +21,6 @@ class CandidatePool {
   }
 
   proposeRedact(redactionBlock, index, harmfulContent, revisedContent) {
-    if (VOTING_CACHE[harmfulContent] == null) {
-      log("Cache for vote not found");
-    } else if (VOTING_CACHE[harmfulContent].result == "WON") {
-      log("Cache for vote found. It was accepted last time.");
-      redactionBlock.transactions[0].outScript = revisedContent;
-      return;
-    } else {
-      log("Cache for vote found. It was rejected last time.");
-      return;
-    }
     const redactionBlockTransactions = [];
     redactionBlock.transactions.forEach((transaction) => {
       redactionBlockTransactions.push(
@@ -461,6 +451,19 @@ class Blockchain {
      */
     candidatePool.redactionCandidates.forEach((redactionCandidate) => {
       const { index, candidateBlock, harmfulContent } = redactionCandidate;
+      const hashOfHarmfulContent = getHashOfData(harmfulContent);
+      for (let block of this.getChain()) {
+        if (block.deltaHash == hashOfHarmfulContent) {
+          log("Cache of vote found. Redaction proposal accepted. ");
+          this.chain[candidateBlock.currentIndex] = {
+            ...candidateBlock,
+            deltaHash: getHashOfData(harmfulContent),
+          };
+          candidatePool.removeBlock(candidateBlock);
+          return;
+        }
+      }
+
       const nextBlockInChain = this.getChain()[index + 1];
       const prevBlockInChain = this.getChain()[index - 1];
       if (
@@ -491,17 +494,14 @@ class Blockchain {
             ) {
               // REDACTION IS ACCEPTED
               log(`Redaction proposal accepted`);
-              VOTING_CACHE[harmfulContent] = {
-                result: "WON",
+              this.chain[candidateBlock.currentIndex] = {
+                ...candidateBlock,
+                deltaHash: getHashOfData(harmfulContent),
               };
-              this.chain[candidateBlock.currentIndex] = candidateBlock;
               candidatePool.removeBlock(candidateBlock);
             } else {
               // REDACTION IS REJECTED
               log(`Redaction proposal rejected`);
-              VOTING_CACHE[harmfulContent] = {
-                result: "LOST",
-              };
               candidatePool.removeBlock(candidateBlock);
             }
           }

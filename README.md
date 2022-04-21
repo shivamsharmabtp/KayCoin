@@ -24,16 +24,14 @@ _⚠️ This Blockchain is for education purposes only. May not be secure enough
 node src/main.js
 ```
 
-### View blockchain
+#### View blockchain
 
-```
 http://localhost:3001/getBlockchain
-```
 
-### Redact blockchain
+#### Redact blockchain
 
 http://localhost:3001/redactChain
 
-### Get your node balance
+#### Get your node balance
 
 http://localhost:3001/getBalance

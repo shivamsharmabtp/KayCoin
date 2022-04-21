@@ -72,14 +72,6 @@ app.get("/getBalance", (req, res) => {
   }
 });
 
-app.get("/isChainValid", (req, res) => {
-  try {
-    res.send(KayCoin.isChainValid());
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
 app.get("/redactChain", (req, res) => {
   try {
     KayCoin.redactChain(localCandidatePool);

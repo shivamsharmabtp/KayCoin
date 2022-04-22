@@ -1,6 +1,6 @@
 # KayCoin
 
-A Redactable version of bitcoin with caching of redaction votes.
+A Redactable version of permisionless blockchain like bitcoin with caching of redaction votes.
 
 ## Authors:
 

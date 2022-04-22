@@ -1,96 +1,17 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-
-const app = express();
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
 const {
   Blockchain,
   Transaction,
   CandidatePool,
-  Block,
-} = require("./blockchain");
-const { privateKey } = require("./util/keygenerator");
-const { initializeNetworkLayer } = require("./network");
-const log = require("./util/log");
-const handleError = require("./util/handleError");
-const { testRun } = require("./../playground/play");
+} = require("./../src/blockchain");
+const { privateKey } = require("./../src/util/keygenerator");
+const log = require("./../src/util/log");
+const handleError = require("./../src/util/handleError");
 
-const HTTP_PORT = process.env.HTTP_PORT || 3001;
 const myWalletAddress = privateKey.getPublic("hex");
 const KayCoin = new Blockchain();
 const localCandidatePool = new CandidatePool();
 
-app.get("/getBlockchain", (req, res) => {
-  try {
-    let chain = KayCoin.getChain();
-    chain = chain.map((block, index) => {
-      return {
-        ...block,
-        index,
-      };
-    });
-    res.json({
-      totalLength: chain.length,
-      chain,
-    });
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
-app.post("/minePendingTransactions", (req, res) => {
-  try {
-    KayCoin.minePendingTransactions(myWalletAddress);
-    res.send("OK");
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
-app.post("/addTransaction", (req, res) => {
-  try {
-    const { sendersAddress, amount } = req.body;
-    const transaction = new Transaction(
-      myWalletAddress,
-      sendersAddress,
-      amount
-    );
-    transaction.signTransaction(privateKey);
-    KayCoin.addTransaction(transaction);
-    res.send("OK");
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
-app.get("/getBalance", (req, res) => {
-  try {
-    res.send(KayCoin.getBalanceOfAddress(myWalletAddress));
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
-app.get("/redactChain", (req, res) => {
-  try {
-    KayCoin.redactChain(localCandidatePool);
-    res.send("OK");
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
-app.get("/getCandidatePool", (req, res) => {
-  try {
-    res.json(localCandidatePool.getRedactionCandidates());
-  } catch (error) {
-    handleError(req, res, [, , ,]);
-  }
-});
-
-const dryRun = () => {
+const testRun = () => {
   const harmfulContent = "👻 👻 👻 SOME_HARMFUL_CONTENT 👻 👻 👻";
 
   /**
@@ -111,7 +32,7 @@ const dryRun = () => {
     transaction.signTransaction(privateKey);
     KayCoin.addTransaction(transaction);
     KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-    //KayCoin.redactChain(localCandidatePool);
+    KayCoin.redactChain(localCandidatePool);
   }
 
   /**
@@ -126,7 +47,7 @@ const dryRun = () => {
   transaction.signTransaction(privateKey);
   KayCoin.addTransaction(transaction);
   KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-  //KayCoin.redactChain(localCandidatePool);
+  KayCoin.redactChain(localCandidatePool);
 
   /**
    * FOUND SOME HARMFUL CONTENT ON CHAIN
@@ -155,7 +76,7 @@ const dryRun = () => {
     transaction.signTransaction(privateKey);
     KayCoin.addTransaction(transaction);
     KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-    //KayCoin.redactChain(localCandidatePool);
+    KayCoin.redactChain(localCandidatePool);
   }
 
   /**
@@ -207,8 +128,6 @@ const dryRun = () => {
   );
 };
 
-app.listen(HTTP_PORT, () => {
-  log(`Node started on ${HTTP_PORT}`);
-  initializeNetworkLayer();
-  testRun();
-});
+module.exports = {
+  testRun,
+};

@@ -15,12 +15,14 @@ const { privateKey } = require("./util/keygenerator");
 const { initializeNetworkLayer } = require("./network");
 const log = require("./util/log");
 const handleError = require("./util/handleError");
-const { testRun } = require("./../playground/play");
+const {
+  testRun,
+  KayCoin,
+  localCandidatePool,
+  myWalletAddress,
+} = require("./../playground/play");
 
 const HTTP_PORT = process.env.HTTP_PORT || 3001;
-const myWalletAddress = privateKey.getPublic("hex");
-const KayCoin = new Blockchain();
-const localCandidatePool = new CandidatePool();
 
 app.get("/getBlockchain", (req, res) => {
   try {
@@ -67,18 +69,21 @@ app.post("/addTransaction", (req, res) => {
 
 app.get("/getBalance", (req, res) => {
   try {
-    res.send(KayCoin.getBalanceOfAddress(myWalletAddress));
+    res.status(200).json({
+      balance: KayCoin.getBalanceOfAddress(myWalletAddress),
+      myWalletAddress,
+    });
   } catch (error) {
-    handleError(req, res, [, , ,]);
+    handleError(req, res, ...[, ,], error);
   }
 });
 
 app.get("/redactChain", (req, res) => {
   try {
     KayCoin.redactChain(localCandidatePool);
-    res.send("OK");
+    res.status(200).send("OK");
   } catch (error) {
-    handleError(req, res, [, , ,]);
+    handleError(req, res, ...[, ,], error);
   }
 });
 
@@ -89,123 +94,6 @@ app.get("/getCandidatePool", (req, res) => {
     handleError(req, res, [, , ,]);
   }
 });
-
-const dryRun = () => {
-  const harmfulContent = "👻 👻 👻 SOME_HARMFUL_CONTENT 👻 👻 👻";
-
-  /**
-   * MINING BLOCK
-   */
-  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-
-  /**
-   * MINING 10 BLOCKS
-   */
-  for (let i = 0; i < 10; i++) {
-    const transaction = new Transaction(
-      myWalletAddress,
-      "address " + i,
-      80 + 2 * i,
-      "Transaction " + i
-    );
-    transaction.signTransaction(privateKey);
-    KayCoin.addTransaction(transaction);
-    KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-    //KayCoin.redactChain(localCandidatePool);
-  }
-
-  /**
-   * MINING 13th BLOCK WITH HARMFUL CONTENT
-   */
-  let transaction = new Transaction(
-    myWalletAddress,
-    "address12",
-    35,
-    "Transaction Twelve. " + harmfulContent
-  );
-  transaction.signTransaction(privateKey);
-  KayCoin.addTransaction(transaction);
-  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-  //KayCoin.redactChain(localCandidatePool);
-
-  /**
-   * FOUND SOME HARMFUL CONTENT ON CHAIN
-   * REQUESTING REDACTION BY CREATING CANDIDATE BLOCK
-   * AND PROPOSING IT FOR CANDIDATE POOL
-   */
-  let redactionBlock = KayCoin.getChain()[12];
-  let revisedContent = "Transaction Twelve. Some Revised Content.";
-  localCandidatePool.proposeRedact(
-    redactionBlock,
-    12,
-    harmfulContent,
-    revisedContent
-  );
-
-  /**
-   * MINING 10 More BLOCKS
-   */
-  for (let i = 0; i < 10; i++) {
-    const transaction = new Transaction(
-      myWalletAddress,
-      "address " + i + 100,
-      40 + 2 * i,
-      "Transaction " + (i + 100)
-    );
-    transaction.signTransaction(privateKey);
-    KayCoin.addTransaction(transaction);
-    KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-    //KayCoin.redactChain(localCandidatePool);
-  }
-
-  /**
-   * MINING 23rd BLOCK WITH SAME HARMFUL CONTENT
-   */
-  transaction = new Transaction(
-    myWalletAddress,
-    "address12",
-    28,
-    "Transaction Twenty Two. " + harmfulContent
-  );
-  transaction.signTransaction(privateKey);
-  KayCoin.addTransaction(transaction);
-  KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-  KayCoin.redactChain(localCandidatePool);
-
-  /**
-   * FOUND SOME HARMFUL CONTENT ON CHAIN
-   * REQUESTING REDACTION BY CREATING CANDIDATE BLOCK
-   * AND PROPOSING IT FOR CANDIDATE POOL
-   */
-  redactionBlock = KayCoin.getChain()[23];
-  revisedContent = "Transaction Twenty Two. Some Revised Content.";
-  localCandidatePool.proposeRedact(
-    redactionBlock,
-    23,
-    harmfulContent,
-    revisedContent
-  );
-
-  /**
-   * MINING 10 More BLOCKS
-   */
-  for (let i = 0; i < 10; i++) {
-    const transaction = new Transaction(
-      myWalletAddress,
-      "address " + i + 100,
-      40 + 2 * i,
-      "Transaction " + (i + 100)
-    );
-    transaction.signTransaction(privateKey);
-    KayCoin.addTransaction(transaction);
-    KayCoin.minePendingTransactions(myWalletAddress, localCandidatePool);
-    KayCoin.redactChain(localCandidatePool);
-  }
-
-  log(
-    `Balance of USER is : $${KayCoin.getBalanceOfAddress(myWalletAddress)} /-`
-  );
-};
 
 app.listen(HTTP_PORT, () => {
   log(`Node started on ${HTTP_PORT}`);
